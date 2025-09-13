@@ -1,0 +1,17 @@
+# requirements.txt
+pandas>=2.0.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+paho-mqtt>=1.6.0
+apscheduler>=3.10.0
+requests>=2.31.0
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+pyomo>=6.6.0
+matplotlib>=3.8.0
+
+# Dev tools
+pytest>=8.0.0
+black>=24.0.0
+isort>=5.13.0
+mypy>=1.8.0
