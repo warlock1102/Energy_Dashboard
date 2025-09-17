@@ -1,4 +1,5 @@
 services:
+  # Database Services
   postgres:
     image: postgres:15
     container_name: energy_postgres
@@ -10,7 +11,19 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - energy-network
 
+  # Message Queue
+  redis:
+    image: redis:alpine
+    container_name: energy_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - energy-network
+
+  # Visualization
   grafana:
     image: grafana/grafana:10.1.2
     container_name: energy_grafana
@@ -21,17 +34,62 @@ services:
       - "3000:3000"
     depends_on:
       - postgres
+    networks:
+      - energy-network
 
-  fastapi:
-    build: .
-    container_name: energy_fastapi
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - .:/app
+  # API Gateway (Main entry point)
+  api-gateway:
+    build:
+      context: .
+      dockerfile: microservices/api-gateway/Dockerfile
+    container_name: energy_api_gateway
+    environment:
+      - OPTIMIZATION_SERVICE_URL=http://energy-optimization:8000
+      - DATA_INGESTION_SERVICE_URL=http://data-ingestion:8000
+      - HOUSEHOLD_SERVICE_URL=http://household:8000
+      - WEATHER_PV_SERVICE_URL=http://weather-pv:8000
+      - IOT_SERVICE_URL=http://iot:8000
     ports:
       - "8000:8000"
     depends_on:
+      - redis
       - postgres
+    networks:
+      - energy-network
+
+  # Energy Optimization Microservice
+  energy-optimization:
+    build:
+      context: .
+      dockerfile: microservices/energy-optimization-service/Dockerfile
+    container_name: energy_optimization
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://user:password@postgres:5432/energydb
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - energy-network
+
+  # Legacy FastAPI (for gradual migration)
+  fastapi-legacy:
+    build: .
+    container_name: energy_fastapi_legacy
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+    networks:
+      - energy-network
+    profiles:
+      - legacy  # Only start with --profile legacy
+
+networks:
+  energy-network:
+    driver: bridge
 
 volumes:
   pgdata:
